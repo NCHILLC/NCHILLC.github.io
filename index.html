@@ -3,442 +3,609 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="theme-color" content="#ffffff">
-<title>Meeting Recorder</title>
-<link rel="manifest" href="data:application/json,{}">
+<meta name="theme-color" content="#1a1a2e">
+<title>Meeting Notes</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: system-ui, sans-serif; background: #f5f5f5; color: #1a1a1a; min-height: 100vh; }
-  .screen { display: none; padding: 1.5rem 1rem; max-width: 480px; margin: 0 auto; }
-  .screen.active { display: block; }
-  h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
-  .sub { font-size: 13px; color: #666; margin-bottom: 1.5rem; }
-  .card { background: #fff; border-radius: 14px; padding: 1.25rem; margin-bottom: 1rem; border: 1px solid #e8e8e8; }
-  .btn { display: block; width: 100%; padding: 13px; border-radius: 12px; border: none; font-size: 15px; font-weight: 500; cursor: pointer; text-align: center; transition: opacity .15s, transform .1s; }
-  .btn:active { transform: scale(0.98); opacity: .9; }
-  .btn-primary { background: #1a1a1a; color: #fff; }
-  .btn-outline { background: #fff; color: #1a1a1a; border: 1.5px solid #d0d0d0; margin-top: 8px; }
-  .btn-red { background: #e24b4a; color: #fff; }
-  .btn-green { background: #3B6D11; color: #fff; }
-  .btn-sm { padding: 7px 14px; font-size: 13px; border-radius: 8px; display: inline-block; width: auto; }
-
-  /* Record screen */
-  .record-ring { width: 120px; height: 120px; border-radius: 50%; margin: 0 auto 1.5rem; display: flex; align-items: center; justify-content: center; font-size: 40px; cursor: pointer; transition: all .2s; border: 3px solid transparent; }
-  .record-ring.idle { background: #fff0f0; border-color: #e24b4a; }
-  .record-ring.recording { background: #e24b4a; animation: pulse 1.4s infinite; }
-  .record-ring.processing { background: #f0f0f0; border-color: #888; }
-  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(226,75,74,.4); } 50% { box-shadow: 0 0 0 14px rgba(226,75,74,0); } }
-  .timer { font-size: 36px; font-weight: 300; text-align: center; letter-spacing: 2px; margin-bottom: 8px; }
-  .status-text { font-size: 13px; color: #666; text-align: center; margin-bottom: 1.5rem; }
-  .transcript-box { background: #fafafa; border-radius: 10px; padding: 12px; min-height: 80px; font-size: 13px; color: #444; line-height: 1.6; border: 1px solid #e8e8e8; }
-
-  /* Settings */
-  label { font-size: 13px; color: #555; display: block; margin-bottom: 5px; font-weight: 500; }
-  input[type=text], input[type=email] { width: 100%; padding: 10px 12px; border: 1.5px solid #e0e0e0; border-radius: 9px; font-size: 14px; margin-bottom: 1rem; background: #fff; }
-  input:focus { outline: none; border-color: #888; }
-
-  /* Action items */
-  .action-item { display: flex; align-items: flex-start; gap: 10px; padding: 12px 0; border-bottom: 1px solid #f0f0f0; }
-  .action-item:last-child { border-bottom: none; }
-  .tag { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 6px; white-space: nowrap; margin-top: 2px; }
-  .tag-task { background: #E6F1FB; color: #185FA5; }
-  .tag-event { background: #EAF3DE; color: #3B6D11; }
-  .tag-reminder { background: #FAEEDA; color: #854F0B; }
-  .item-text { font-size: 14px; line-height: 1.5; flex: 1; }
-  .item-actions { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
-  .cal-btn { font-size: 12px; padding: 4px 10px; border-radius: 7px; border: 1.5px solid #d0d0d0; background: #fff; cursor: pointer; display: flex; align-items: center; gap: 4px; }
-  .cal-btn:hover { background: #f5f5f5; }
-  .done-check { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #d0d0d0; cursor: pointer; flex-shrink: 0; margin-top: 2px; display: flex; align-items: center; justify-content: center; font-size: 12px; transition: all .15s; }
-  .done-check.checked { background: #3B6D11; border-color: #3B6D11; color: #fff; }
-
-  /* Email status */
-  .email-badge { display: inline-flex; align-items: center; gap: 6px; background: #EAF3DE; color: #3B6D11; padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: 500; margin-bottom: 1rem; }
-
-  /* Nav */
-  .nav { display: flex; gap: 8px; margin-bottom: 1.5rem; }
-  .nav-btn { flex: 1; padding: 8px; border-radius: 10px; border: 1.5px solid #e0e0e0; background: #fff; font-size: 13px; cursor: pointer; text-align: center; }
-  .nav-btn.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
-
-  .loading { text-align: center; padding: 2rem; color: #888; font-size: 14px; }
-  .spinner { width: 32px; height: 32px; border: 3px solid #e0e0e0; border-top-color: #888; border-radius: 50%; animation: spin .8s linear infinite; margin: 0 auto 12px; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .error-box { background: #fff0f0; border: 1px solid #f9c1c1; border-radius: 10px; padding: 12px; font-size: 13px; color: #a32d2d; margin-bottom: 1rem; }
-  .summary-section { margin-bottom: 1rem; }
-  .summary-section h3 { font-size: 14px; font-weight: 600; color: #555; margin-bottom: 8px; text-transform: uppercase; letter-spacing: .5px; }
-  .no-items { text-align: center; color: #999; font-size: 14px; padding: 2rem 0; }
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#f4f6f9;color:#1a1a1a;min-height:100vh}
+.screen{display:none;max-width:480px;margin:0 auto;padding:1rem}
+.screen.active{display:block}
+/* NAV BAR */
+.navbar{position:sticky;top:0;background:#1a1a2e;color:#fff;padding:.85rem 1rem;display:flex;align-items:center;justify-content:space-between;z-index:100;max-width:480px;margin:0 auto}
+.navbar h2{font-size:16px;font-weight:600}
+.nav-icons{display:flex;gap:14px}
+.nav-icons button{background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:2px}
+/* BOTTOM NAV */
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #e0e0e0;display:flex;max-width:480px;margin:0 auto;z-index:100}
+.bottom-nav button{flex:1;padding:10px 4px 8px;border:none;background:none;cursor:pointer;font-size:10px;color:#888;display:flex;flex-direction:column;align-items:center;gap:3px}
+.bottom-nav button span.icon{font-size:20px}
+.bottom-nav button.active{color:#1a1a2e;font-weight:600}
+.page-wrap{padding-bottom:70px;padding-top:4px}
+/* CARDS */
+.card{background:#fff;border-radius:14px;padding:1.25rem;margin-bottom:1rem;border:1px solid #e8e8e8;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+/* BUTTONS */
+.btn{display:block;width:100%;padding:13px;border-radius:12px;border:none;font-size:15px;font-weight:500;cursor:pointer;text-align:center;transition:opacity .15s,transform .1s}
+.btn:active{transform:scale(.98);opacity:.9}
+.btn-primary{background:#1a1a2e;color:#fff}
+.btn-red{background:#e24b4a;color:#fff}
+.btn-outline{background:#fff;color:#1a1a2e;border:1.5px solid #d0d0d0;margin-top:8px}
+.btn-sm{padding:6px 12px;font-size:12px;border-radius:8px;display:inline-block;width:auto;border:1.5px solid #d0d0d0;background:#fff;cursor:pointer}
+/* RECORD */
+.record-ring{width:110px;height:110px;border-radius:50%;margin:0 auto 1rem;display:flex;align-items:center;justify-content:center;font-size:38px;cursor:pointer;transition:all .2s;border:3px solid transparent}
+.record-ring.idle{background:#fff0f0;border-color:#e24b4a}
+.record-ring.recording{background:#e24b4a;animation:pulse 1.4s infinite}
+.record-ring.processing{background:#f0f0f0;border-color:#888}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(226,75,74,.4)}50%{box-shadow:0 0 0 14px rgba(226,75,74,0)}}
+.timer{font-size:32px;font-weight:300;text-align:center;letter-spacing:2px;margin-bottom:6px}
+.status-text{font-size:13px;color:#666;text-align:center;margin-bottom:1.2rem}
+.transcript-box{background:#fafafa;border-radius:10px;padding:12px;min-height:80px;font-size:13px;color:#444;line-height:1.6;border:1px solid #e8e8e8;max-height:160px;overflow-y:auto}
+/* MEETING FIELDS */
+.field-row{margin-bottom:12px}
+.field-row label{font-size:12px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:4px}
+.field-row input,.field-row textarea{width:100%;padding:9px 11px;border:1.5px solid #e0e0e0;border-radius:9px;font-size:14px;background:#fff;font-family:inherit}
+.field-row textarea{min-height:60px;resize:vertical}
+input:focus,textarea:focus{outline:none;border-color:#1a1a2e}
+/* SUMMARY SECTIONS */
+.sum-section{margin-bottom:1rem}
+.sum-section h4{font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid #f0f0f0}
+.sum-section p,.sum-section li{font-size:14px;line-height:1.6;color:#222}
+.sum-section ul{padding-left:16px}
+.sum-section ul li{margin-bottom:3px}
+.quote-block{background:#f7f4ff;border-left:3px solid #7c5cbf;border-radius:0 8px 8px 0;padding:8px 12px;margin:4px 0;font-size:13px;color:#444;font-style:italic}
+/* TAGS */
+.tag{font-size:11px;font-weight:600;padding:2px 8px;border-radius:6px;white-space:nowrap}
+.tag-task{background:#E6F1FB;color:#185FA5}
+.tag-event{background:#EAF3DE;color:#3B6D11}
+.tag-reminder{background:#FAEEDA;color:#854F0B}
+.tag-hot{background:#fde8e8;color:#c0392b}
+.tag-warm{background:#fef3e2;color:#e67e22}
+.tag-cold{background:#e8f4fd;color:#2980b9}
+/* HISTORY LIST */
+.hist-item{display:flex;align-items:flex-start;gap:10px;padding:12px 0;border-bottom:1px solid #f0f0f0;cursor:pointer}
+.hist-item:last-child{border-bottom:none}
+.hist-item:hover .hist-title{text-decoration:underline}
+.hist-dot{width:38px;height:38px;border-radius:50%;background:#1a1a2e;color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;flex-shrink:0}
+.hist-title{font-size:14px;font-weight:500;margin-bottom:2px}
+.hist-meta{font-size:12px;color:#888}
+/* MISC */
+.badge{display:inline-flex;align-items:center;gap:5px;background:#EAF3DE;color:#3B6D11;padding:5px 11px;border-radius:20px;font-size:12px;font-weight:500;margin-bottom:10px}
+.error-box{background:#fff0f0;border:1px solid #f9c1c1;border-radius:10px;padding:11px;font-size:13px;color:#a32d2d;margin-bottom:.8rem}
+.loading{text-align:center;padding:2rem;color:#888;font-size:14px}
+.spinner{width:30px;height:30px;border:3px solid #e0e0e0;border-top-color:#888;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 10px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty-state{text-align:center;padding:3rem 1rem;color:#aaa}
+.empty-state .icon{font-size:40px;margin-bottom:10px}
+.section-title{font-size:18px;font-weight:600;margin-bottom:4px}
+.section-sub{font-size:13px;color:#666;margin-bottom:1rem}
+.appt-badge{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:1rem}
+.appt-set{background:#EAF3DE;color:#3B6D11}
+.appt-pending{background:#FAEEDA;color:#854F0B}
+.appt-none{background:#f0f0f0;color:#666}
+.cal-btn{font-size:12px;padding:4px 10px;border-radius:7px;border:1.5px solid #d0d0d0;background:#fff;cursor:pointer;display:inline-flex;align-items:center;gap:4px;margin-top:4px}
+.action-item-row{display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid #f8f8f8}
+.action-item-row:last-child{border-bottom:none}
+.done-check{width:18px;height:18px;border-radius:50%;border:2px solid #d0d0d0;cursor:pointer;flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center;font-size:10px;transition:all .15s}
+.done-check.checked{background:#3B6D11;border-color:#3B6D11;color:#fff}
+/* SETTINGS */
+.settings-label{font-size:13px;font-weight:600;color:#555;display:block;margin-bottom:5px}
+.settings-input{width:100%;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:9px;font-size:14px;margin-bottom:1rem;background:#fff}
+.settings-input:focus{outline:none;border-color:#1a1a2e}
+.card-title{font-size:15px;font-weight:600;margin-bottom:.8rem}
+.hint{font-size:12px;color:#999;margin-top:-8px;margin-bottom:1rem}
 </style>
 </head>
 <body>
 
-<!-- RECORD SCREEN -->
-<div class="screen active" id="screen-record">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;padding-top:.5rem">
-    <div>
-      <h1>Meeting Recorder</h1>
-      <div class="sub">Tap to start recording</div>
-    </div>
-    <button onclick="showScreen('settings')" style="background:none;border:none;cursor:pointer;font-size:22px;">⚙️</button>
+<!-- NAVBAR -->
+<div class="navbar" id="navbar">
+  <h2 id="nav-title">Meeting Notes</h2>
+  <div class="nav-icons">
+    <button onclick="showDigestModal()" title="Send Daily Digest">📧</button>
+    <button onclick="showTab('settings')" title="Settings">⚙️</button>
   </div>
-
-  <div class="card" style="text-align:center;padding:2rem 1rem;">
-    <div class="record-ring idle" id="record-ring" onclick="toggleRecording()">🎙️</div>
-    <div class="timer" id="timer">0:00</div>
-    <div class="status-text" id="status-text">Ready to record</div>
-  </div>
-
-  <div class="card">
-    <div style="font-size:13px;font-weight:600;color:#555;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Live Transcript</div>
-    <div class="transcript-box" id="transcript-box">Your transcript will appear here as you speak...</div>
-  </div>
-
-  <div id="record-error" style="display:none" class="error-box"></div>
 </div>
 
-<!-- PROCESSING SCREEN -->
-<div class="screen" id="screen-processing">
-  <div style="padding-top:3rem">
+<!-- ===== RECORD TAB ===== -->
+<div class="screen active" id="tab-record">
+  <div class="page-wrap">
+
+    <!-- Meeting Info -->
+    <div class="card" style="margin-top:12px">
+      <div class="card-title">Meeting Info</div>
+      <div class="field-row">
+        <label>Realtor Name</label>
+        <input type="text" id="r-name" placeholder="e.g. Sarah Mitchell">
+      </div>
+      <div class="field-row">
+        <label>Brokerage</label>
+        <input type="text" id="r-brokerage" placeholder="e.g. Keller Williams">
+      </div>
+      <div class="field-row">
+        <label>Phone / Email</label>
+        <input type="text" id="r-contact" placeholder="Optional">
+      </div>
+      <div class="field-row">
+        <label>Meeting Goal</label>
+        <input type="text" id="r-goal" placeholder="e.g. Set presentation appointment">
+      </div>
+    </div>
+
+    <!-- Recorder -->
+    <div class="card" style="text-align:center;padding:1.5rem 1rem">
+      <div class="record-ring idle" id="record-ring" onclick="toggleRecording()">🎙️</div>
+      <div class="timer" id="timer">0:00</div>
+      <div class="status-text" id="status-text">Tap to start recording</div>
+    </div>
+
+    <div class="card">
+      <div style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Live Transcript</div>
+      <div class="transcript-box" id="transcript-box">Your transcript will appear here as you speak...</div>
+    </div>
+
+    <div id="record-error" style="display:none" class="error-box"></div>
+
+  </div>
+</div>
+
+<!-- ===== PROCESSING SCREEN ===== -->
+<div class="screen" id="tab-processing">
+  <div style="padding-top:4rem">
     <div class="loading">
       <div class="spinner"></div>
-      <div style="font-weight:500;font-size:16px;margin-bottom:6px">Analyzing your meeting...</div>
-      <div>Extracting action items and preparing your email</div>
+      <div style="font-weight:500;font-size:16px;margin-bottom:6px">Analyzing meeting...</div>
+      <div style="font-size:13px">Building your structured summary</div>
     </div>
   </div>
 </div>
 
-<!-- RESULTS SCREEN -->
-<div class="screen" id="screen-results">
-  <div style="display:flex;align-items:center;gap:10px;margin-bottom:1.5rem;padding-top:.5rem">
-    <button onclick="newRecording()" style="background:none;border:none;cursor:pointer;font-size:20px;">←</button>
-    <div>
-      <h1>Action Items</h1>
-      <div class="sub" id="results-sub">From your meeting</div>
+<!-- ===== SUMMARY VIEW ===== -->
+<div class="screen" id="tab-summary">
+  <div class="page-wrap" style="margin-top:12px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:1rem">
+      <button onclick="showTab('history')" style="background:none;border:none;cursor:pointer;font-size:20px">←</button>
+      <div>
+        <div class="section-title" id="sum-name">Meeting Summary</div>
+        <div class="section-sub" id="sum-meta"></div>
+      </div>
     </div>
+
+    <div id="sum-appt-badge"></div>
+    <div id="sum-email-badge" style="display:none" class="badge">✅ Saved to daily digest</div>
+    <div id="sum-error" style="display:none" class="error-box"></div>
+
+    <div class="card" id="sum-overview"></div>
+    <div class="card" id="sum-realtor-info"></div>
+    <div class="card" id="sum-quotes"></div>
+    <div class="card" id="sum-followups"></div>
+    <div class="card" id="sum-actions"></div>
+
+    <button class="btn btn-outline" onclick="showTab('record')" style="margin-bottom:6px">🎙️ New Recording</button>
+    <button class="btn btn-outline" onclick="deleteMeeting(currentMeetingId)">🗑️ Delete This Meeting</button>
   </div>
-
-  <div id="email-status" style="display:none" class="email-badge">✅ Summary emailed to you</div>
-  <div id="email-error" style="display:none" class="error-box"></div>
-
-  <div class="card" id="action-items-container">
-    <div class="loading"><div class="spinner"></div></div>
-  </div>
-
-  <button class="btn btn-outline" onclick="resendEmail()" style="margin-bottom:8px">📧 Resend Email</button>
-  <button class="btn btn-outline" onclick="newRecording()">🎙️ New Recording</button>
 </div>
 
-<!-- SETTINGS SCREEN -->
-<div class="screen" id="screen-settings">
-  <div style="display:flex;align-items:center;gap:10px;margin-bottom:1.5rem;padding-top:.5rem">
-    <button onclick="showScreen('record')" style="background:none;border:none;cursor:pointer;font-size:20px;">←</button>
-    <h1>Settings</h1>
+<!-- ===== HISTORY TAB ===== -->
+<div class="screen" id="tab-history">
+  <div class="page-wrap" style="margin-top:12px">
+    <div class="section-title">Meeting History</div>
+    <div class="section-sub" id="hist-sub">All recorded meetings</div>
+    <div id="history-list"></div>
   </div>
+</div>
 
-  <div class="card">
-    <div style="font-size:15px;font-weight:600;margin-bottom:1rem">Your Info</div>
-    <label>Your name</label>
-    <input type="text" id="s-name" placeholder="Alex Johnson">
-    <label>Your email (where summaries are sent)</label>
-    <input type="email" id="s-email" placeholder="you@example.com">
+<!-- ===== SETTINGS TAB ===== -->
+<div class="screen" id="tab-settings">
+  <div class="page-wrap" style="margin-top:12px">
+    <div class="section-title">Settings</div>
+    <div class="section-sub" style="margin-bottom:1rem">Configure your app</div>
+
+    <div class="card">
+      <div class="card-title">Your Info</div>
+      <label class="settings-label">Your Name</label>
+      <input class="settings-input" type="text" id="s-name" placeholder="Alex Johnson">
+      <label class="settings-label">Your Email (digest sent here)</label>
+      <input class="settings-input" type="email" id="s-email" placeholder="you@example.com">
+    </div>
+
+    <div class="card">
+      <div class="card-title">EmailJS Setup</div>
+      <div class="hint" style="margin-top:-4px;margin-bottom:10px">Free at emailjs.com — needed for email delivery</div>
+      <label class="settings-label">Service ID</label>
+      <input class="settings-input" type="text" id="s-service" placeholder="service_xxxxxxx">
+      <label class="settings-label">Template ID</label>
+      <input class="settings-input" type="text" id="s-template" placeholder="template_xxxxxxx">
+      <label class="settings-label">Public Key</label>
+      <input class="settings-input" type="text" id="s-pubkey" placeholder="your_public_key">
+    </div>
+
+    <div class="card">
+      <div class="card-title">Claude API</div>
+      <label class="settings-label">Anthropic API Key</label>
+      <input class="settings-input" type="text" id="s-apikey" placeholder="sk-ant-...">
+      <div class="hint">Stored locally on this device only.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">EmailJS Template Variables</div>
+      <div style="font-size:12px;color:#666;line-height:1.8">
+        Use these in your EmailJS template:<br>
+        <code>{{to_name}}</code> — your name<br>
+        <code>{{digest_date}}</code> — today's date<br>
+        <code>{{meeting_count}}</code> — # of meetings<br>
+        <code>{{digest_body}}</code> — full digest content<br>
+        <code>{{priorities}}</code> — top action items
+      </div>
+    </div>
+
+    <button class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
+    <div id="save-confirm" style="display:none;text-align:center;color:#3B6D11;font-size:14px;margin-top:10px;font-weight:500">✅ Saved!</div>
+
+    <div style="margin-top:1.5rem">
+      <button class="btn btn-outline" style="color:#c0392b;border-color:#e8b4b3" onclick="clearAllData()">🗑️ Clear All Meeting Data</button>
+    </div>
   </div>
+</div>
 
-  <div class="card">
-    <div style="font-size:15px;font-weight:600;margin-bottom:.5rem">EmailJS Setup</div>
-    <div style="font-size:12px;color:#888;margin-bottom:1rem">Free at emailjs.com — required for email sending</div>
-    <label>EmailJS Service ID</label>
-    <input type="text" id="s-service" placeholder="service_xxxxxxx">
-    <label>EmailJS Template ID</label>
-    <input type="text" id="s-template" placeholder="template_xxxxxxx">
-    <label>EmailJS Public Key</label>
-    <input type="text" id="s-pubkey" placeholder="your_public_key">
+<!-- BOTTOM NAV -->
+<div class="bottom-nav">
+  <button onclick="showTab('record')" id="nav-record" class="active">
+    <span class="icon">🎙️</span>Record
+  </button>
+  <button onclick="showTab('history')" id="nav-history">
+    <span class="icon">📋</span>History
+  </button>
+  <button onclick="showTab('settings')" id="nav-settings">
+    <span class="icon">⚙️</span>Settings
+  </button>
+</div>
+
+<!-- DIGEST MODAL -->
+<div id="digest-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-end;justify-content:center">
+  <div style="background:#fff;border-radius:20px 20px 0 0;padding:1.5rem;width:100%;max-width:480px">
+    <div style="font-size:17px;font-weight:600;margin-bottom:.5rem">📧 Send Daily Digest</div>
+    <div style="font-size:13px;color:#666;margin-bottom:1rem">Send all of today's meeting summaries, action items, follow-ups, and priorities to your email.</div>
+    <div id="digest-count" style="font-size:13px;margin-bottom:1rem;color:#444"></div>
+    <button class="btn btn-primary" onclick="sendDigest()">Send Digest Email</button>
+    <button class="btn btn-outline" onclick="$('digest-modal').style.display='none'">Cancel</button>
   </div>
-
-  <div class="card">
-    <div style="font-size:15px;font-weight:600;margin-bottom:.5rem">Claude API</div>
-    <label>Anthropic API Key</label>
-    <input type="text" id="s-apikey" placeholder="sk-ant-...">
-    <div style="font-size:12px;color:#888">Your key is stored locally on this device only.</div>
-  </div>
-
-  <button class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
-  <div id="save-confirm" style="display:none;text-align:center;color:#3B6D11;font-size:14px;margin-top:10px;font-weight:500">✅ Saved!</div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script>
 const $ = id => document.getElementById(id);
 
-let recognition, isRecording = false, transcript = '', timerInt, seconds = 0;
-let actionItems = [];
+let recognition, isRecording=false, transcript='', timerInt, seconds=0;
+let currentMeetingId = null;
 
-function getSettings() {
-  return {
-    name: localStorage.getItem('rec_name') || '',
-    email: localStorage.getItem('rec_email') || '',
-    service: localStorage.getItem('rec_service') || '',
-    template: localStorage.getItem('rec_template') || '',
-    pubkey: localStorage.getItem('rec_pubkey') || '',
-    apikey: localStorage.getItem('rec_apikey') || ''
-  };
+// ---- STORAGE ----
+function getMeetings(){ try{return JSON.parse(localStorage.getItem('meetings')||'[]')}catch{return[]} }
+function saveMeetings(m){ localStorage.setItem('meetings',JSON.stringify(m)) }
+function getSettings(){ return { name:ls('rec_name'), email:ls('rec_email'), service:ls('rec_service'), template:ls('rec_template'), pubkey:ls('rec_pubkey'), apikey:ls('rec_apikey') } }
+function ls(k){ return localStorage.getItem(k)||'' }
+
+function saveSettings(){
+  ['name','email','service','template','pubkey','apikey'].forEach(k=>{
+    localStorage.setItem('rec_'+k, $('s-'+k).value.trim())
+  });
+  $('save-confirm').style.display='block';
+  setTimeout(()=>$('save-confirm').style.display='none',2000)
+}
+function loadSettings(){
+  const s=getSettings();
+  $('s-name').value=s.name; $('s-email').value=s.email;
+  $('s-service').value=s.service; $('s-template').value=s.template;
+  $('s-pubkey').value=s.pubkey; $('s-apikey').value=s.apikey;
 }
 
-function loadSettings() {
-  const s = getSettings();
-  $('s-name').value = s.name;
-  $('s-email').value = s.email;
-  $('s-service').value = s.service;
-  $('s-template').value = s.template;
-  $('s-pubkey').value = s.pubkey;
-  $('s-apikey').value = s.apikey;
+// ---- TABS ----
+function showTab(name){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  $('tab-'+name).classList.add('active');
+  document.querySelectorAll('.bottom-nav button').forEach(b=>b.classList.remove('active'));
+  const nb=$('nav-'+name); if(nb) nb.classList.add('active');
+  const titles={record:'Meeting Notes',history:'History',settings:'Settings',summary:'Summary',processing:'Processing...'};
+  $('nav-title').textContent=titles[name]||'Meeting Notes';
+  if(name==='history') renderHistory();
+  if(name==='settings') loadSettings();
 }
 
-function saveSettings() {
-  localStorage.setItem('rec_name', $('s-name').value.trim());
-  localStorage.setItem('rec_email', $('s-email').value.trim());
-  localStorage.setItem('rec_service', $('s-service').value.trim());
-  localStorage.setItem('rec_template', $('s-template').value.trim());
-  localStorage.setItem('rec_pubkey', $('s-pubkey').value.trim());
-  localStorage.setItem('rec_apikey', $('s-apikey').value.trim());
-  $('save-confirm').style.display = 'block';
-  setTimeout(() => $('save-confirm').style.display = 'none', 2000);
-}
+// ---- RECORDING ----
+function toggleRecording(){ isRecording ? stopRecording() : startRecording() }
 
-function showScreen(name) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  $('screen-' + name).classList.add('active');
-  if (name === 'settings') loadSettings();
-}
-
-function updateTimer() {
-  seconds++;
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  $('timer').textContent = m + ':' + String(s).padStart(2, '0');
-}
-
-function toggleRecording() {
-  if (isRecording) stopRecording();
-  else startRecording();
-}
-
-function startRecording() {
-  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-    showError('record-error', 'Speech recognition is not supported in this browser. Please use Chrome on Android.');
-    return;
+function startRecording(){
+  if(!('webkitSpeechRecognition' in window)&&!('SpeechRecognition' in window)){
+    showErr('record-error','Speech recognition not supported. Use Chrome on Android.'); return;
   }
-  transcript = '';
-  $('transcript-box').textContent = 'Listening...';
-  $('record-error').style.display = 'none';
-
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  recognition = new SR();
-  recognition.continuous = true;
-  recognition.interimResults = true;
-  recognition.lang = 'en-US';
-
-  let finalTranscript = '';
-  recognition.onresult = e => {
-    let interim = '';
-    for (let i = e.resultIndex; i < e.results.length; i++) {
-      if (e.results[i].isFinal) finalTranscript += e.results[i][0].transcript + ' ';
-      else interim += e.results[i][0].transcript;
+  transcript=''; $('transcript-box').textContent='Listening...'; $('record-error').style.display='none';
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  recognition=new SR(); recognition.continuous=true; recognition.interimResults=true; recognition.lang='en-US';
+  let final='';
+  recognition.onresult=e=>{
+    let interim='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      if(e.results[i].isFinal) final+=e.results[i][0].transcript+' ';
+      else interim+=e.results[i][0].transcript;
     }
-    transcript = finalTranscript + interim;
-    $('transcript-box').textContent = transcript || 'Listening...';
+    transcript=final+interim;
+    $('transcript-box').textContent=transcript||'Listening...';
   };
-  recognition.onerror = e => {
-    if (e.error !== 'aborted') showError('record-error', 'Microphone error: ' + e.error);
-  };
-  recognition.onend = () => {
-    if (isRecording) recognition.start();
-  };
-
+  recognition.onerror=e=>{ if(e.error!=='aborted') showErr('record-error','Mic error: '+e.error) };
+  recognition.onend=()=>{ if(isRecording) recognition.start() };
   recognition.start();
-  isRecording = true;
-  seconds = 0;
-  timerInt = setInterval(updateTimer, 1000);
-  $('record-ring').className = 'record-ring recording';
-  $('record-ring').textContent = '⏹️';
-  $('status-text').textContent = 'Recording... tap to stop';
+  isRecording=true; seconds=0;
+  timerInt=setInterval(()=>{ seconds++; const m=Math.floor(seconds/60),s=seconds%60; $('timer').textContent=m+':'+String(s).padStart(2,'0') },1000);
+  $('record-ring').className='record-ring recording'; $('record-ring').textContent='⏹️';
+  $('status-text').textContent='Recording... tap to stop';
 }
 
-function stopRecording() {
-  isRecording = false;
-  clearInterval(timerInt);
-  if (recognition) { recognition.onend = null; recognition.stop(); }
-  $('record-ring').className = 'record-ring processing';
-  $('record-ring').textContent = '⏳';
-  $('status-text').textContent = 'Processing...';
-
-  if (!transcript.trim()) {
-    showError('record-error', 'No speech detected. Please try again.');
-    resetRecordUI();
-    return;
-  }
+function stopRecording(){
+  isRecording=false; clearInterval(timerInt);
+  if(recognition){recognition.onend=null;recognition.stop();}
+  $('record-ring').className='record-ring processing'; $('record-ring').textContent='⏳';
+  $('status-text').textContent='Processing...';
+  if(!transcript.trim()){showErr('record-error','No speech detected. Please try again.');resetRecordUI();return;}
   processTranscript();
 }
 
-function resetRecordUI() {
-  $('record-ring').className = 'record-ring idle';
-  $('record-ring').textContent = '🎙️';
-  $('status-text').textContent = 'Ready to record';
-  $('timer').textContent = '0:00';
+function resetRecordUI(){
+  $('record-ring').className='record-ring idle'; $('record-ring').textContent='🎙️';
+  $('status-text').textContent='Tap to start recording'; $('timer').textContent='0:00';
 }
 
-async function processTranscript() {
-  showScreen('processing');
-  const s = getSettings();
+// ---- AI PROCESSING ----
+async function processTranscript(){
+  showTab('processing');
+  const s=getSettings();
+  if(!s.apikey){ showTab('record'); showErr('record-error','Add your Anthropic API key in Settings first.'); resetRecordUI(); return; }
 
-  if (!s.apikey) {
-    showScreen('record');
-    showError('record-error', 'Please add your Anthropic API key in Settings first.');
-    resetRecordUI();
-    return;
-  }
+  const realtorName=$('r-name').value.trim()||'Unknown Realtor';
+  const brokerage=$('r-brokerage').value.trim()||'';
+  const contact=$('r-contact').value.trim()||'';
+  const goal=$('r-goal').value.trim()||'Set presentation appointment';
 
-  try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': s.apikey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-5',
-        max_tokens: 1500,
-        system: `You extract action items from meeting transcripts. Return ONLY a valid JSON array. Each item: {"type":"task|event|reminder","text":"clear action item","person":"who (or 'Me' if unclear)","deadline":"if mentioned, else ''"}. Focus on concrete tasks, scheduled events, and time-sensitive reminders. No preamble, no markdown, just the JSON array.`,
-        messages: [{ role: 'user', content: `Extract action items from this transcript:\n\n${transcript}` }]
+  const systemPrompt=`You are an expert sales meeting analyst for a real estate presentation appointment setter. 
+Analyze the meeting transcript and return ONLY a valid JSON object (no markdown, no preamble) with this exact structure:
+{
+  "overview": "2-3 sentence summary of the meeting",
+  "leadTemp": "hot|warm|cold",
+  "appointmentStatus": "set|pending|not_set",
+  "appointmentDetails": "date/time if set, else empty string",
+  "realtorProfile": {
+    "painPoints": ["pain point 1", "pain point 2"],
+    "objections": ["objection 1"],
+    "motivators": ["motivator 1"],
+    "currentSituation": "brief description of their current situation"
+  },
+  "keyQuotes": ["exact quote 1", "exact quote 2"],
+  "suggestedFollowUps": ["follow-up action 1", "follow-up action 2", "follow-up action 3"],
+  "actionItems": [
+    {"type":"task|event|reminder","text":"action text","deadline":"if mentioned, else empty"}
+  ]
+}`;
+
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':s.apikey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-5',
+        max_tokens:1500,
+        system:systemPrompt,
+        messages:[{role:'user',content:`Realtor: ${realtorName} | Brokerage: ${brokerage} | Goal: ${goal}\n\nTranscript:\n${transcript}`}]
       })
     });
+    const data=await res.json();
+    if(!res.ok) throw new Error(data.error?.message||'API error');
+    const raw=data.content[0].text.replace(/```json|```/g,'').trim();
+    const parsed=JSON.parse(raw);
 
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error?.message || 'API error');
+    const meeting={
+      id: Date.now().toString(),
+      date: new Date().toISOString(),
+      realtorName, brokerage, contact, goal, transcript,
+      summary: parsed
+    };
 
-    const raw = data.content[0].text.replace(/```json|```/g, '').trim();
-    actionItems = JSON.parse(raw);
-    
-    showResults();
-    sendEmail(actionItems);
-  } catch (err) {
-    showScreen('record');
-    showError('record-error', 'Error: ' + err.message);
+    const meetings=getMeetings();
+    meetings.unshift(meeting);
+    saveMeetings(meetings);
+    currentMeetingId=meeting.id;
+    renderSummary(meeting);
+    showTab('summary');
+    $('sum-email-badge').style.display='flex';
+    clearRecordForm();
+  }catch(err){
+    showTab('record');
+    showErr('record-error','Error: '+err.message);
     resetRecordUI();
   }
 }
 
-function showResults() {
-  showScreen('results');
-  const now = new Date();
-  $('results-sub').textContent = now.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
-  $('email-status').style.display = 'none';
-  $('email-error').style.display = 'none';
-  renderItems();
+function clearRecordForm(){
+  ['r-name','r-brokerage','r-contact','r-goal'].forEach(id=>$(id).value='');
+  $('transcript-box').textContent='Your transcript will appear here as you speak...';
+  $('timer').textContent='0:00';
+  resetRecordUI();
 }
 
-function renderItems() {
-  const c = $('action-items-container');
-  if (!actionItems.length) {
-    c.innerHTML = '<div class="no-items">No action items found in this recording.</div>';
+// ---- RENDER SUMMARY ----
+function renderSummary(m){
+  const s=m.summary;
+  const d=new Date(m.date);
+  $('sum-name').textContent=m.realtorName+(m.brokerage?' — '+m.brokerage:'');
+  $('sum-meta').textContent=d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})+' · '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+
+  // Appointment badge
+  const apptEl=$('sum-appt-badge');
+  if(s.appointmentStatus==='set') apptEl.innerHTML=`<div class="appt-badge appt-set">✅ Appointment Set${s.appointmentDetails?' — '+esc(s.appointmentDetails):''}</div>`;
+  else if(s.appointmentStatus==='pending') apptEl.innerHTML=`<div class="appt-badge appt-pending">⏳ Appointment Pending</div>`;
+  else apptEl.innerHTML=`<div class="appt-badge appt-none">📅 No Appointment Yet</div>`;
+
+  // Lead temp
+  const tempMap={hot:'🔴 Hot Lead',warm:'🟡 Warm Lead',cold:'🔵 Cold Lead'};
+  const tempTag=`<span class="tag tag-${s.leadTemp||'cold'}" style="margin-left:8px">${tempMap[s.leadTemp]||'Cold Lead'}</span>`;
+
+  // Overview
+  $('sum-overview').innerHTML=`<div class="sum-section"><h4>Overview ${tempTag}</h4><p>${esc(s.overview)}</p></div>`;
+
+  // Realtor profile
+  const rp=s.realtorProfile||{};
+  let rpHtml=`<div class="sum-section"><h4>Realtor Profile</h4>`;
+  if(rp.currentSituation) rpHtml+=`<p style="margin-bottom:8px"><strong>Situation:</strong> ${esc(rp.currentSituation)}</p>`;
+  if(rp.painPoints?.length) rpHtml+=`<p><strong>Pain Points:</strong></p><ul>${rp.painPoints.map(p=>`<li>${esc(p)}</li>`).join('')}</ul>`;
+  if(rp.objections?.length) rpHtml+=`<p style="margin-top:6px"><strong>Objections:</strong></p><ul>${rp.objections.map(o=>`<li>${esc(o)}</li>`).join('')}</ul>`;
+  if(rp.motivators?.length) rpHtml+=`<p style="margin-top:6px"><strong>Motivators:</strong></p><ul>${rp.motivators.map(o=>`<li>${esc(o)}</li>`).join('')}</ul>`;
+  rpHtml+=`</div>`;
+  $('sum-realtor-info').innerHTML=rpHtml;
+
+  // Key quotes
+  const quotes=s.keyQuotes||[];
+  $('sum-quotes').innerHTML=`<div class="sum-section"><h4>Key Quotes</h4>${quotes.length?quotes.map(q=>`<div class="quote-block">"${esc(q)}"</div>`).join(''):'<p style="color:#aaa;font-size:13px">None captured</p>'}</div>`;
+
+  // Follow-ups
+  const fups=s.suggestedFollowUps||[];
+  $('sum-followups').innerHTML=`<div class="sum-section"><h4>Suggested Follow-Ups</h4><ul>${fups.map(f=>`<li>${esc(f)}</li>`).join('')}</ul></div>`;
+
+  // Action items
+  const actions=s.actionItems||[];
+  let aHtml=`<div class="sum-section"><h4>Action Items</h4>`;
+  if(!actions.length) aHtml+=`<p style="color:#aaa;font-size:13px">None identified</p>`;
+  actions.forEach((a,i)=>{
+    const gcUrl=buildCalUrl(a.text);
+    aHtml+=`<div class="action-item-row">
+      <div class="done-check" onclick="toggleDone(this)" id="ac-${i}"></div>
+      <div style="flex:1">
+        <div style="font-size:14px;line-height:1.5">${esc(a.text)}</div>
+        ${a.deadline?`<div style="font-size:12px;color:#888;margin-top:2px">📅 ${esc(a.deadline)}</div>`:''}
+        <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap">
+          <span class="tag tag-${a.type}">${a.type}</span>
+          <button class="cal-btn" onclick="window.open('${gcUrl}','_blank')">📅 Add to Calendar</button>
+        </div>
+      </div>
+    </div>`;
+  });
+  aHtml+=`</div>`;
+  $('sum-actions').innerHTML=aHtml;
+}
+
+function buildCalUrl(text){
+  const base='https://calendar.google.com/calendar/render?action=TEMPLATE';
+  const t=encodeURIComponent(text);
+  const now=new Date();
+  const s=now.toISOString().replace(/[-:]/g,'').split('.')[0]+'Z';
+  const e=new Date(now.getTime()+3600000).toISOString().replace(/[-:]/g,'').split('.')[0]+'Z';
+  return `${base}&text=${t}&dates=${s}/${e}`;
+}
+
+function toggleDone(el){ el.classList.toggle('checked'); el.textContent=el.classList.contains('checked')?'✓':'' }
+
+// ---- HISTORY ----
+function renderHistory(){
+  const meetings=getMeetings();
+  const el=$('history-list');
+  $('hist-sub').textContent=meetings.length+' meeting'+(meetings.length!==1?'s':'')+' recorded';
+  if(!meetings.length){
+    el.innerHTML=`<div class="empty-state"><div class="icon">📋</div><div>No meetings yet.<br>Record your first one!</div></div>`;
     return;
   }
+  el.innerHTML=meetings.map(m=>{
+    const d=new Date(m.date);
+    const initials=m.realtorName.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()||'?';
+    const temp=m.summary?.leadTemp||'cold';
+    const appt=m.summary?.appointmentStatus;
+    const apptIcon=appt==='set'?'✅':appt==='pending'?'⏳':'📅';
+    return `<div class="hist-item" onclick="openMeeting('${m.id}')">
+      <div class="hist-dot">${initials}</div>
+      <div style="flex:1">
+        <div class="hist-title">${esc(m.realtorName)}${m.brokerage?' <span style="font-weight:400;color:#888">· '+esc(m.brokerage)+'</span>':''}</div>
+        <div class="hist-meta">${d.toLocaleDateString('en-US',{month:'short',day:'numeric'})} · ${d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})} · <span class="tag tag-${temp}" style="padding:1px 6px">${temp}</span> ${apptIcon}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
 
-  const groups = { task: [], event: [], reminder: [] };
-  actionItems.forEach((item, i) => groups[item.type]?.push({ ...item, idx: i }));
+function openMeeting(id){
+  const meetings=getMeetings();
+  const m=meetings.find(x=>x.id===id);
+  if(!m) return;
+  currentMeetingId=id;
+  $('sum-email-badge').style.display='none';
+  $('sum-error').style.display='none';
+  renderSummary(m);
+  showTab('summary');
+}
 
-  const typeLabel = { task: '🔴 Tasks', event: '📅 Events to schedule', reminder: '⏰ Reminders' };
-  let html = '';
-  for (const [type, items] of Object.entries(groups)) {
-    if (!items.length) continue;
-    html += `<div class="summary-section"><h3>${typeLabel[type]}</h3>`;
-    items.forEach(item => {
-      const tagClass = 'tag-' + item.type;
-      const gcUrl = buildCalendarUrl(item);
-      html += `
-        <div class="action-item" id="item-${item.idx}">
-          <div class="done-check" onclick="toggleDone(${item.idx})" id="check-${item.idx}"></div>
-          <div style="flex:1">
-            <div class="item-text">${escHtml(item.text)}</div>
-            ${item.person && item.person !== 'Me' ? `<div style="font-size:12px;color:#888;margin-top:2px">👤 ${escHtml(item.person)}</div>` : ''}
-            ${item.deadline ? `<div style="font-size:12px;color:#888;margin-top:2px">📅 ${escHtml(item.deadline)}</div>` : ''}
-            <div class="item-actions">
-              <span class="tag ${tagClass}">${item.type}</span>
-              <button class="cal-btn" onclick="openCalendar('${encodeURIComponent(gcUrl)}')">📅 Add to Calendar</button>
-            </div>
-          </div>
-        </div>`;
-    });
-    html += '</div>';
+function deleteMeeting(id){
+  if(!confirm('Delete this meeting?')) return;
+  const meetings=getMeetings().filter(m=>m.id!==id);
+  saveMeetings(meetings);
+  showTab('history');
+}
+
+// ---- DAILY DIGEST ----
+function showDigestModal(){
+  const today=new Date().toDateString();
+  const todayMeetings=getMeetings().filter(m=>new Date(m.date).toDateString()===today);
+  $('digest-count').textContent=todayMeetings.length
+    ? `${todayMeetings.length} meeting${todayMeetings.length>1?'s':''} from today ready to send.`
+    : 'No meetings recorded today yet.';
+  $('digest-modal').style.display='flex';
+}
+
+async function sendDigest(){
+  $('digest-modal').style.display='none';
+  const s=getSettings();
+  if(!s.service||!s.template||!s.pubkey||!s.email){
+    alert('Please configure EmailJS settings first.'); return;
   }
-  c.innerHTML = html;
-}
-
-function buildCalendarUrl(item) {
-  const base = 'https://calendar.google.com/calendar/render?action=TEMPLATE';
-  const title = encodeURIComponent(item.text);
-  const now = new Date();
-  const dateStr = now.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-  const end = new Date(now.getTime() + 3600000).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-  return `${base}&text=${title}&dates=${dateStr}/${end}&details=${encodeURIComponent('Action item from meeting on ' + now.toLocaleDateString())}`;
-}
-
-function openCalendar(encodedUrl) {
-  window.open(decodeURIComponent(encodedUrl), '_blank');
-}
-
-function toggleDone(idx) {
-  const el = $('check-' + idx);
-  el.classList.toggle('checked');
-  el.textContent = el.classList.contains('checked') ? '✓' : '';
-}
-
-async function sendEmail(items) {
-  const s = getSettings();
-  if (!s.service || !s.template || !s.pubkey || !s.email) {
-    $('email-error').textContent = 'Email not sent — configure EmailJS settings first.';
-    $('email-error').style.display = 'block';
-    return;
-  }
+  const today=new Date().toDateString();
+  const meetings=getMeetings().filter(m=>new Date(m.date).toDateString()===today);
+  if(!meetings.length){ alert('No meetings from today to send.'); return; }
 
   emailjs.init(s.pubkey);
-  const lines = items.map(i => `[${i.type.toUpperCase()}] ${i.text}${i.deadline ? ' — ' + i.deadline : ''}`).join('\n');
-  const date = new Date().toLocaleString();
 
-  try {
-    await emailjs.send(s.service, s.template, {
-      to_email: s.email,
-      to_name: s.name || 'there',
-      meeting_date: date,
-      action_items: lines,
-      item_count: items.length
+  // Build digest body
+  let body='';
+  let allActions=[];
+  meetings.forEach((m,i)=>{
+    const sm=m.summary||{};
+    const d=new Date(m.date);
+    body+=`\n━━━━━━━━━━━━━━━━━━━━━\n`;
+    body+=`MEETING ${i+1}: ${m.realtorName}${m.brokerage?' — '+m.brokerage:''}\n`;
+    body+=`Time: ${d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}\n`;
+    body+=`Lead: ${(sm.leadTemp||'cold').toUpperCase()} | Appointment: ${sm.appointmentStatus||'not_set'}${sm.appointmentDetails?' ('+sm.appointmentDetails+')':''}\n\n`;
+    body+=`OVERVIEW:\n${sm.overview||'N/A'}\n\n`;
+    if(sm.realtorProfile?.painPoints?.length) body+=`PAIN POINTS:\n${sm.realtorProfile.painPoints.map(p=>'• '+p).join('\n')}\n\n`;
+    if(sm.realtorProfile?.objections?.length) body+=`OBJECTIONS:\n${sm.realtorProfile.objections.map(o=>'• '+o).join('\n')}\n\n`;
+    if(sm.keyQuotes?.length) body+=`KEY QUOTES:\n${sm.keyQuotes.map(q=>'"'+q+'"').join('\n')}\n\n`;
+    if(sm.suggestedFollowUps?.length) body+=`FOLLOW-UPS:\n${sm.suggestedFollowUps.map(f=>'→ '+f).join('\n')}\n\n`;
+    if(sm.actionItems?.length){
+      body+=`ACTION ITEMS:\n${sm.actionItems.map(a=>`[${a.type.toUpperCase()}] ${a.text}${a.deadline?' ('+a.deadline+')':''}`).join('\n')}\n`;
+      allActions.push(...sm.actionItems);
+    }
+  });
+
+  // Priorities = all tasks sorted by type (hot meetings first)
+  const priorities=allActions.slice(0,10).map((a,i)=>`${i+1}. [${a.type}] ${a.text}`).join('\n');
+
+  try{
+    await emailjs.send(s.service,s.template,{
+      to_name:s.name||'there',
+      digest_date:new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'}),
+      meeting_count:String(meetings.length),
+      digest_body:body,
+      priorities:priorities||'No action items today.'
     });
-    $('email-status').style.display = 'flex';
-  } catch (e) {
-    $('email-error').textContent = 'Email failed: ' + (e.text || e.message || 'Unknown error');
-    $('email-error').style.display = 'block';
+    alert('✅ Daily digest sent to '+s.email);
+  }catch(e){
+    alert('Email failed: '+(e.text||e.message||'Unknown error'));
   }
 }
 
-async function resendEmail() { await sendEmail(actionItems); }
-
-function newRecording() {
-  transcript = '';
-  actionItems = [];
-  $('transcript-box').textContent = 'Your transcript will appear here as you speak...';
-  $('timer').textContent = '0:00';
-  resetRecordUI();
-  $('record-error').style.display = 'none';
-  showScreen('record');
-}
-
-function showError(id, msg) {
-  $(id).textContent = msg;
-  $(id).style.display = 'block';
-}
-
-function escHtml(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
+// ---- UTILS ----
+function showErr(id,msg){ $(id).textContent=msg; $(id).style.display='block' }
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+function clearAllData(){ if(confirm('Delete ALL meeting data? This cannot be undone.')) { localStorage.removeItem('meetings'); renderHistory(); alert('All data cleared.'); } }
 </script>
 </body>
 </html>
